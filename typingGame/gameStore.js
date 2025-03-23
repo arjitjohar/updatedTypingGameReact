@@ -10,7 +10,7 @@ const useGameStore = create((set) => ({
 
   // Actions
   setCurrentWord: (word) => set({ currentWord: word }),
-  setParagraph: (pararaph) => set({pararaph: word}),
+  setParagraph: (word) => set({pararaph: word}),
   setTypedWord: (word) => set({ typedWord: word }),
   incrementScore: () => set((state) => ({ score: state.score + 1 })),
   decrementTimer: () => set((state) => ({ timer: state.timer - 1 })),

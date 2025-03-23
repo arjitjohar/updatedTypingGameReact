@@ -58,8 +58,9 @@ const TypingGame = () => {
     const fetchParagraph = async () => {
       try {
         const response = await axios.get('http://localhost:3000/generate');
-        const paragraphData = response.data.paragraph;
+        const paragraphData = JSON.stringify(response.data.paragraph);
         setParagraph(paragraphData)
+        console.log(paragraphData)
       } catch (error) {
         console.error('Error fetching paragraph:', error);
       }

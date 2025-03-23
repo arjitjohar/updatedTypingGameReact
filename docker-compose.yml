@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: express-app-container-typingGame
+    ports:
+      - "3000:3000" # Map port 3000 on the host to port 3000 in the container
+    environment:
+      - NODE_ENV=development # Set environment variables if needed
+    volumes:
+      - ./server:/app # Mount ./server directory to /app in the container
+      - /app/node_modules # Prevent overwriting node_modules inside the container
+    restart: unless-stopped # Automatically restart the container if it crashes
+
+  app:
+    build:
+      context: ./typingGame
+      dockerfile: Dockerfile # Specify Dockerfile explicitly for consistency
+    container_name: typingGame-Vite
+    ports:
+      - "5173:5173" # Map port 5173 on the host to port 5173 in the container (default for Vite)
+    volumes:
+      - ./typing_app:/app # Mount ./typing_app directory to /app in the container
+      - /app/node_modules # Prevent overwriting node_modules inside the container
+    restart: unless-stopped # Automatically restart the container if it crashes

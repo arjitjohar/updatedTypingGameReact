@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from '../../gameStore';
 import axios from 'axios';
 const TypingGame = () => {
@@ -18,6 +18,9 @@ const TypingGame = () => {
     setParagraph
   } = useGameStore();
 
+
+  const [paragraphTest, setParagraphTest] = useState('')
+
   // Generate a random word (example function)
   const generateRandomWord = () => {
     const words = ['apple', 'banana', 'cherry', 'date', 'elderberry'];
@@ -29,6 +32,7 @@ const TypingGame = () => {
     resetGame();
     startGame();
     setCurrentWord(generateRandomWord());
+    setParagraph(fetchParagraph())
   };
 
   // Handle typing input
@@ -43,6 +47,10 @@ const TypingGame = () => {
     }
   };
 
+  useEffect(() => {
+    fetchParagraph
+  }, [])
+
   // Timer countdown effect
   useEffect(() => {
     if (isGameActive && timer > 0) {
@@ -53,29 +61,25 @@ const TypingGame = () => {
     }
   }, [isGameActive, timer]);
 
+  const fetchParagraph = async () => {
+    try {
+      const response = await axios.get('http://localhost:3000/generate');
+      const paragraphData = response.data.paragraph;
+      setParagraphTest(paragraphData)
+      console.log(paragraphData)
+      return paragraphData;
 
-  useEffect(() => {
-    const fetchParagraph = async () => {
-      try {
-        const response = await axios.get('http://localhost:3000/generate');
-        const paragraphData = JSON.stringify(response.data.paragraph);
-        setParagraph(paragraphData)
-        console.log(paragraphData)
-      } catch (error) {
-        console.error('Error fetching paragraph:', error);
-      }
-    };
-
-    fetchParagraph();
-  }, []);
-
+    } catch (error) {
+      console.error('Error fetching paragraph:', error);
+    }
+  };
 
 
   return (
     <div>
       <h1>Typing Game</h1>
       <p>
-        {paragraph}
+        {paragraphTest}
       </p>
       {isGameActive ? (
         <>
@@ -93,7 +97,7 @@ const TypingGame = () => {
       ) : (
         <button onClick={handleStart}>Start Game</button>
       )}
-      {timer === 0 && <p>Game Over! Your final score is {score}.</p>}
+      {timer === 0 && <div><p>Game Over! Your final score is {score}.</p><p><button onClick={() => resetGame()}>reset</button></p></div>}
     </div>
   );
 };

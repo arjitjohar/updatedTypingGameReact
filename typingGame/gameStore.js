@@ -15,7 +15,7 @@ const useGameStore = create((set) => ({
   incrementScore: () => set((state) => ({ score: state.score + 1 })),
   decrementTimer: () => set((state) => ({ timer: state.timer - 1 })),
   resetGame: () =>
-    set({ currentWord: '', typedWord: '', score: 0, timer: 60, isGameActive: false, pararaph: ''}),
+    set({ currentWord: '', typedWord: '', score: 0, timer: 5, isGameActive: false, pararaph: ''}),
   startGame: () => set({ isGameActive: true }),
 }));
 export default useGameStore;

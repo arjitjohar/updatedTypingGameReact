@@ -12,7 +12,7 @@ app.get("/generate", cors(), async (req, res) => {
     const response = await axios.post(
       "https://api.perplexity.ai/chat/completions",
       {
-        model: "mistral-7b-instruct", // You can choose other models like "sonar-pro".
+        model: "sonar", // You can choose other models like "sonar-pro".
         messages: [
           { role: "system", content: "Generate a random paragraph of about 100 words." },
           { role: "user", content: "Write a random paragraph about any topic in 100 words." },

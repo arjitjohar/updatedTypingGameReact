@@ -26,7 +26,6 @@ const TypingGame = () => {
   const handleStart = async () => {
     resetGame();
     startGame();
-    getParagraph();
   };
 
 
@@ -43,14 +42,9 @@ const TypingGame = () => {
     }
   };
 
-
-     useEffect(() => {
+  useEffect( () => {
     getParagraph();
-  }, []);
-    useEffect(() => {
-    getParagraph();
-  }, []);
-   
+  });
  
 
   // Timer countdown effect

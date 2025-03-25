@@ -14,8 +14,8 @@ app.get("/generate", cors(), async (req, res) => {
       {
         model: "sonar", // You can choose other models like "sonar-pro".
         messages: [
-          { role: "system", content: "Generate a random paragraph of about 100 words." },
-          { role: "user", content: "Write a random paragraph about any topic in 100 words." },
+          { role: "system", content: "write a block of text which contains 100 words which are seperated by commas" },
+          { role: "user", content: "write a block of text which contains 100 words which are seperated by commas" },
         ],
         max_tokens: 150,
         temperature: 0.7, // Adjust for creativity (higher = more creative).

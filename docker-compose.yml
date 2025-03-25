@@ -26,7 +26,7 @@ services:
       - /app/node_modules # Prevent overwriting node_modules inside container
     environment:
       - NODE_ENV=development
-    restart: unless-stopped,
+    restart: unless-stopped
     
   mongodb:
     image: mongo:latest

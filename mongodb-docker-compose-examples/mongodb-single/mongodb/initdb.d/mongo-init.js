@@ -6,10 +6,15 @@ db.createUser({
     roles: [
       {
         role: 'readWrite', 
-        db: 'got_db'
+        db: 'got_db',
+        db:'testing'
       },
     ],
   });
+
+db.createUser({
+
+})
 
 db.createCollection("got_seasons_collection");
 

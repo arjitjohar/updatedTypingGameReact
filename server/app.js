@@ -1,6 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors")
+
 require("dotenv").config();
 
 const app = express();
@@ -35,6 +36,8 @@ app.get("/generate", cors(), async (req, res) => {
     res.status(500).send("Error generating paragraph.");
   }
 });
+
+
 
 // Route to generate a list of random words that the user can type from. 
 app.get("/generate mistakes", cors(), async (req, res) => {

@@ -43,8 +43,9 @@ const TypingGame = () => {
   };
 
   useEffect( () => {
+    
     getParagraph();
-  });
+  },[]);
  
 
   // Timer countdown effect

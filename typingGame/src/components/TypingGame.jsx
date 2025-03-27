@@ -15,25 +15,20 @@ const TypingGame = () => {
     resetGame,
     startGame,
     paragraph,
-    setParagraph
+    setIsLoading,
+    getParagraph
   } = useGameStore();
 
 
-  const [paragraphTest, setParagraphTest] = useState('')
 
-  // Generate a random word (example function)
-  const generateRandomWord = () => {
-    const words = ['apple', 'banana', 'cherry', 'date', 'elderberry'];
-    return words[Math.floor(Math.random() * words.length)];
-  };
 
   // Start the game
-  const handleStart = () => {
+  const handleStart = async () => {
     resetGame();
     startGame();
-    setCurrentWord(generateRandomWord());
-    setParagraph(fetchParagraph())
   };
+
+
 
   // Handle typing input
   const handleInputChange = (e) => {
@@ -47,9 +42,11 @@ const TypingGame = () => {
     }
   };
 
-  useEffect(() => {
-    fetchParagraph
-  }, [])
+  useEffect( () => {
+    
+    getParagraph();
+  },[]);
+ 
 
   // Timer countdown effect
   useEffect(() => {
@@ -61,26 +58,11 @@ const TypingGame = () => {
     }
   }, [isGameActive, timer]);
 
-  const fetchParagraph = async () => {
-    try {
-      const response = await axios.get('http://localhost:3000/generate');
-      const paragraphData = response.data.paragraph;
-      setParagraphTest(paragraphData)
-      console.log(paragraphData)
-      return paragraphData;
-
-    } catch (error) {
-      console.error('Error fetching paragraph:', error);
-    }
-  };
-
 
   return (
     <div>
       <h1>Typing Game</h1>
-      <p>
-        {paragraphTest}
-      </p>
+      <p>{paragraph || 'Loading...'}</p>
       {isGameActive ? (
         <>
           <p>Time Left: {timer}s</p>

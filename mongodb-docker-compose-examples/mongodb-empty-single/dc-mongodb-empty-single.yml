@@ -1,39 +1,11 @@
+version: '3.9'
 
 services:
-  server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: express-app-container-typingGame
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./server:/app # Mount ./server directory to /app in container
-      - /app/node_modules # Prevent overwriting node_modules inside container
-    environment:
-      - NODE_ENV=development
-    restart: unless-stopped
-
-  app:
-    build:
-      context: ./typingGame
-      dockerfile: Dockerfile
-    container_name: typingGame-Vite
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./typingGame:/app # Mount ./typing_app directory to /app in container
-      - /app/node_modules # Prevent overwriting node_modules inside container
-    environment:
-      - NODE_ENV=development
-    restart: unless-stopped
-    
   mongodb:
     image: mongo:latest
     container_name: mongodb
     hostname: mongodb
     volumes:
-      - ./mongodb/initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
       - mongodb-data:/data/db/
       - mongodb-log:/var/log/mongodb/
     env_file:
@@ -76,5 +48,3 @@ networks:
   mongodb_network:
     driver: bridge
     name: mongo-network
-
-  

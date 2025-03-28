@@ -1,4 +1,4 @@
-POC Typing game Project using docker and perplexity AI. 
+# POC Typing game Project using docker and perplexity AI. 
 
 ## how to run this program
 - add .env file in main repo containing env variables for mongodb

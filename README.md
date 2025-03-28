@@ -1,4 +1,4 @@
-Typing game. 
+POC Typing game Project using docker and perplexity AI. 
 - run `npm install` in the root of `server/` and the root of `typingGame/`
 - to start the game, run `docker compose build` then `docker compose up`
 - demo:

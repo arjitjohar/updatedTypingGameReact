@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { CharState, GameState } from '../type';
 
 // --- Constants ---
 const TEXT_TO_TYPE = "Form consider interest stand year life it also under over with may do most face when world which down up do never hand mean after since little open set do run new find here plan because public use these such may that can and still think great state leave both while same program report group seem number course company high point between part turn real change feel.";
 const COUNTDOWN_SECONDS = 3;
 
 // --- Types ---
-type GameState = 'idle' | 'countdown' | 'running' | 'finished';
-type CharState = 'pending' | 'correct' | 'incorrect';
+
 
 interface CharacterProps {
   char: string;
@@ -127,8 +127,8 @@ const TypingTestPage = () => {
   const [endTime, setEndTime] = useState<number | null>(null);
   const [displayTime, setDisplayTime] = useState<number>(0); // State for the continuously updated timer display
 
-  const countdownIntervalRef = useRef<number | null>(null);
-  const timerIntervalRef = useRef<number | null>(null); // Ref for the running timer interval
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // Ref for the running timer interval
   const textDisplayRef = useRef<HTMLDivElement>(null); // Ref for focus management
 
   // Derived state for results

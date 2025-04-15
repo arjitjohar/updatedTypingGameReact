@@ -104,11 +104,12 @@ const Countdown: React.FC<{ count: number }> = ({ count }) => {
 /**
  * Displays the results (WPM and Accuracy).
  */
-const ResultsDisplay: React.FC<{ wpm: number; accuracy: number }> = ({ wpm, accuracy }) => {
+const ResultsDisplay: React.FC<{ wpm: number; accuracy: number; incorrectChars: number }> = ({ wpm, accuracy, incorrectChars }) => {
   return (
     <div className="mt-4 text-center text-xl text-gray-300 space-x-6">
       <span>WPM: <span className="font-semibold text-yellow-400">{wpm}</span></span>
       <span>Accuracy: <span className="font-semibold text-green-400">{accuracy}%</span></span>
+      <span>Incorrect: <span className="font-semibold text-red-400">{incorrectChars}</span></span>
     </div>
   );
 };
@@ -117,7 +118,7 @@ const ResultsDisplay: React.FC<{ wpm: number; accuracy: number }> = ({ wpm, accu
 /**
  * Main Application Component.
  */
-const TypingTestPage: React.FC = () => {
+const TypingTestPage = () => {
   const [textToType] = useState<string>(TEXT_TO_TYPE);
   const [userInput, setUserInput] = useState<string>('');
   const [gameState, setGameState] = useState<GameState>('idle'); // 'idle', 'countdown', 'running', 'finished'
@@ -135,7 +136,7 @@ const TypingTestPage: React.FC = () => {
   const correctCharacters = textToType.split('').reduce((acc, char, index) => {
       return acc + (index < charactersTyped && userInput[index] === char ? 1 : 0);
   }, 0);
-  const incorrectCharacters = charactersTyped - correctCharacters; // Simple count of mismatches
+  const incorrectCharacters = charactersTyped - correctCharacters // Simple count of mismatches
 
   const elapsedTime = startTime && endTime ? (endTime - startTime) / 1000 :
                       startTime && !endTime && gameState === 'running' ? (Date.now() - startTime) / 1000 : 0;
@@ -281,7 +282,7 @@ const TypingTestPage: React.FC = () => {
 
         {/* Results Display */}
         {gameState === 'finished' && (
-           <ResultsDisplay wpm={wpm} accuracy={accuracy} />
+           <ResultsDisplay wpm={wpm} accuracy={accuracy} incorrectChars={incorrectCharacters} />
         )}
 
 

@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import TypingTestPage from './components/TypingTestPage';
+import TypingTestPage from './pages/TypingTestPage';
 
 
 
 /**
  * Main Application Component.
  */
-const App: React.FC = () => {
+const App = () => {
 
   return (
     <div>

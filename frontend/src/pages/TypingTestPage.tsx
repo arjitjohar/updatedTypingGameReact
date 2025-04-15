@@ -124,8 +124,10 @@ const TypingTestPage: React.FC = () => {
   const [countdownValue, setCountdownValue] = useState<number>(COUNTDOWN_SECONDS);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
+  const [displayTime, setDisplayTime] = useState<number>(0); // State for the continuously updated timer display
 
   const countdownIntervalRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<number | null>(null); // Ref for the running timer interval
   const textDisplayRef = useRef<HTMLDivElement>(null); // Ref for focus management
 
   // Derived state for results
@@ -172,6 +174,25 @@ const TypingTestPage: React.FC = () => {
       }
     };
   }, [gameState]); // Rerun effect when gameState changes
+
+
+  // Running Timer Logic
+  useEffect(() => {
+    if (gameState === 'running' && startTime) {
+      timerIntervalRef.current = setInterval(() => {
+        setDisplayTime((Date.now() - startTime) / 1000);
+      }, 100); // Update display every 100ms
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current); // Clear interval if state is not 'running'
+    }
+
+    // Cleanup interval on component unmount or gameState change
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [gameState, startTime]);
 
 
   // Keyboard Event Listener
@@ -222,9 +243,13 @@ const TypingTestPage: React.FC = () => {
     setUserInput('');
     setStartTime(null);
     setEndTime(null);
+    setDisplayTime(0); // Reset display time
     setCountdownValue(COUNTDOWN_SECONDS);
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
+    }
+    if (timerIntervalRef.current) { // Clear running timer interval as well
+        clearInterval(timerIntervalRef.current);
     }
      // Focus the area to allow starting with Enter maybe? Or just prepare for typing.
      textDisplayRef.current?.focus();
@@ -246,12 +271,15 @@ const TypingTestPage: React.FC = () => {
         {/* Typing Area */}
         <TypingTextDisplay text={textToType} userInput={userInput} />
 
-        {/* Results Display */}
-        {(gameState === 'running' || gameState === 'finished') && startTime && (
+        {/* Timer Display */}
+        {(gameState === 'running' || gameState === 'finished') && (
           <div className="mt-4 text-center text-lg text-gray-400">
-            Time: {elapsedTime.toFixed(1)}s
+            {/* Display continuously updated time during 'running', final time when 'finished' */}
+            Time: {gameState === 'running' ? displayTime.toFixed(1) : elapsedTime.toFixed(1)}
           </div>
         )}
+
+        {/* Results Display */}
         {gameState === 'finished' && (
            <ResultsDisplay wpm={wpm} accuracy={accuracy} />
         )}

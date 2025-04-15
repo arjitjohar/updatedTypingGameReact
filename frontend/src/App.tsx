@@ -1,17 +1,13 @@
-import './App.css'
-import CenteredText from './components/CenteredText'
+import React from 'react';
+import TypingTestPage from './components/TypingTestPage';
 
 function App() {
 
-  var placeholder = "this is a sample paragraph."
-
   return (
-    <>
-      <div className=''>
-        <CenteredText/>
-      </div>
-    </>
-  )
+    <div>
+      <TypingTestPage/>
+    </div>
+  );
 }
 
-export default App
+export default App;

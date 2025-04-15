@@ -1,18 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { CharState, GameState } from '../type';
+import { CharState, GameState, CharacterProps, TypingTextDisplayProps, CountdownProps, ResultsDisplayProps } from '../type';
 
 // --- Constants ---
 const TEXT_TO_TYPE = "Form consider interest stand year life it also under over with may do most face when world which down up do never hand mean after since little open set do run new find here plan because public use these such may that can and still think great state leave both while same program report group seem number course company high point between part turn real change feel.";
 const COUNTDOWN_SECONDS = 3;
-
-// --- Types ---
-
-
-interface CharacterProps {
-  char: string;
-  state: CharState;
-  isCursor: boolean;
-}
 
 // --- Helper Functions ---
 /**
@@ -48,7 +39,7 @@ const calculateAccuracy = (correctChars: number, totalTyped: number): number => 
 /**
  * Renders a single character with appropriate styling based on its state.
  */
-const Character: React.FC<CharacterProps> = React.memo(({ char, state, isCursor }) => {
+const Character = React.memo(({ char, state, isCursor }: CharacterProps) => {
   let colorClass = 'text-gray-500'; // Default: pending
   if (state === 'correct') {
     colorClass = 'text-green-400';
@@ -71,7 +62,7 @@ const Character: React.FC<CharacterProps> = React.memo(({ char, state, isCursor 
 /**
  * Displays the text to be typed, highlighting correct/incorrect/pending characters.
  */
-const TypingTextDisplay: React.FC<{ text: string; userInput: string }> = ({ text, userInput }) => {
+const TypingTextDisplay = ({ text, userInput }: TypingTextDisplayProps) => {
   const chars = text.split('');
   const userInputLength = userInput.length;
 
@@ -92,7 +83,7 @@ const TypingTextDisplay: React.FC<{ text: string; userInput: string }> = ({ text
 /**
  * Displays the countdown timer.
  */
-const Countdown: React.FC<{ count: number }> = ({ count }) => {
+const Countdown = ({ count }: CountdownProps) => {
   if (count <= 0) return null;
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 z-10">
@@ -104,7 +95,7 @@ const Countdown: React.FC<{ count: number }> = ({ count }) => {
 /**
  * Displays the results (WPM and Accuracy).
  */
-const ResultsDisplay: React.FC<{ wpm: number; accuracy: number; incorrectChars: number }> = ({ wpm, accuracy, incorrectChars }) => {
+const ResultsDisplay = ({ wpm, accuracy, incorrectChars }: ResultsDisplayProps) => {
   return (
     <div className="mt-4 text-center text-xl text-gray-300 space-x-6">
       <span>WPM: <span className="font-semibold text-yellow-400">{wpm}</span></span>

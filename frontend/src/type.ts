@@ -1,5 +1,24 @@
-// Define GameState as a union of possible string literal states
+export type CharState = 'pending' | 'correct' | 'incorrect';
+
 export type GameState = 'idle' | 'countdown' | 'running' | 'finished';
 
-// Define CharState as a union of possible string literal states
-export type CharState = 'pending' | 'correct' | 'incorrect';
+export type CharacterProps = {
+  char: string;
+  state: CharState;
+  isCursor: boolean;
+};
+
+export type TypingTextDisplayProps = {
+  text: string;
+  userInput: string;
+};
+
+export type CountdownProps = {
+  count: number;
+};
+
+export type ResultsDisplayProps = {
+  wpm: number;
+  accuracy: number;
+  incorrectChars: number;
+};

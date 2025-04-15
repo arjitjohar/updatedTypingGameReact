@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TypingTestPage from './components/TypingTestPage';
 
-function App() {
+
+
+/**
+ * Main Application Component.
+ */
+const App: React.FC = () => {
 
   return (
     <div>
-      <TypingTestPage/>
+      <TypingTestPage />
     </div>
   );
-}
+};
 
-export default App;
+export default App; // Ensure App is the default export
+

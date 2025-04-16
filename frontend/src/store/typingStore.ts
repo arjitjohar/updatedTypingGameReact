@@ -54,7 +54,7 @@ interface TypingState {
   backspace: () => void;
 }
 
-export const useTypingStore = create<TypingState>((set, get) => ({
+export const useTypingStore = create<TypingState>((set) => ({
   // Initial State
   textToType: TEXT_TO_TYPE,
   userInput: '',

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from './pages/LandingPage';
 import Navbar from './components/Navbar';
 import LeaderboardPage from './pages/LeaderboardPage';
+import LoginPage from './pages/LoginPage';
 
 /**
  * Main Application Component.
@@ -16,6 +17,7 @@ const App = () => {
         <Route path="/" element={<LandingPage/>}/>
         <Route path="typing" element={<TypingTestPage/>}/>
         <Route path="leaderboard" element={<LeaderboardPage/>}/>
+        <Route path="login" element={<LoginPage/>}/>
       </Routes>
     </BrowserRouter>
 

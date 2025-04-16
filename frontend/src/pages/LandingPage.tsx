@@ -1,4 +1,3 @@
-import React, { useEffect, useCallback, useRef } from 'react'; // Removed useState
 
 /**
  * Main Application Component.

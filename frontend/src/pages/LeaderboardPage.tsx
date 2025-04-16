@@ -1,4 +1,3 @@
-import React, { useEffect, useCallback, useRef } from 'react'; // Removed useState
 
 /**
  * Main Application Component.
@@ -16,6 +15,7 @@ const LeaderboardPage = () => {
                     <li>97 wpm</li>
                     <li>94 wpm</li>
                     <li>89 wpm</li>
+                    <li>62 wpm</li>
                 </ul>
 
 

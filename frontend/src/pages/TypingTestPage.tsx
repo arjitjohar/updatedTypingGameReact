@@ -121,7 +121,7 @@ const TypingTestPage = () => {
     countdownValue,
     startTime,
     endTime,
-    setUserInput, // Keep if direct setting is needed, but prefer actions
+    //setUserInput, // Keep if direct setting is needed, but prefer actions
     startGame,
     startTyping,
     // endGame is handled internally by typeCharacter/backspace

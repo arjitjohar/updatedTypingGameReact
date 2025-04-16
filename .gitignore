@@ -28,3 +28,5 @@ dist-ssr
 amplify_outputs*
 amplifyconfiguration*
 docker-compose-examples
+
+terraform.tfstate

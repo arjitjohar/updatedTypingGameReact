@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { CharState, GameState, CharacterProps, TypingTextDisplayProps, CountdownProps, ResultsDisplayProps } from '../type';
+import React, { useEffect, useCallback, useRef } from 'react'; // Removed useState
+import { CharacterProps, CharState, CountdownProps, ResultsDisplayProps, TypingTextDisplayProps, useTypingStore } from '../store/typingStore'; // Import the store
 
 // --- Constants ---
+// TEXT_TO_TYPE and COUNTDOWN_SECONDS are now managed/referenced within the store,
+// but we might still need TEXT_TO_TYPE here for display logic if not selecting it from store.
+// Let's keep it here for now for the TypingTextDisplay component.
 const TEXT_TO_TYPE = "Form consider interest stand year life it also under over with may do most face when world which down up do never hand mean after since little open set do run new find here plan because public use these such may that can and still think great state leave both while same program report group seem number course company high point between part turn real change feel.";
-const COUNTDOWN_SECONDS = 3;
+
 
 // --- Helper Functions ---
 /**
@@ -110,16 +113,29 @@ const ResultsDisplay = ({ wpm, accuracy, incorrectChars }: ResultsDisplayProps) 
  * Main Application Component.
  */
 const TypingTestPage = () => {
-  const [textToType] = useState<string>(TEXT_TO_TYPE);
-  const [userInput, setUserInput] = useState<string>('');
-  const [gameState, setGameState] = useState<GameState>('idle'); // 'idle', 'countdown', 'running', 'finished'
-  const [countdownValue, setCountdownValue] = useState<number>(COUNTDOWN_SECONDS);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [endTime, setEndTime] = useState<number | null>(null);
-  const [displayTime, setDisplayTime] = useState<number>(0); // State for the continuously updated timer display
+  // Get state and actions from the Zustand store
+  const {
+    textToType, // Get text from store if needed, or use the constant above
+    userInput,
+    gameState,
+    countdownValue,
+    startTime,
+    endTime,
+    setUserInput, // Keep if direct setting is needed, but prefer actions
+    startGame,
+    startTyping,
+    // endGame is handled internally by typeCharacter/backspace
+    restartGame,
+    decrementCountdown,
+    typeCharacter,
+    backspace,
+  } = useTypingStore();
+
+  // Local state only for things not in the global store (like display timer)
+  const [displayTime, setDisplayTime] = React.useState<number>(0); // Use React.useState
 
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // Ref for the running timer interval
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textDisplayRef = useRef<HTMLDivElement>(null); // Ref for focus management
 
   // Derived state for results
@@ -138,25 +154,22 @@ const TypingTestPage = () => {
 
   // --- Effects ---
 
-  // Countdown Timer Logic
+  // Countdown Timer Logic - Managed by store actions now
   useEffect(() => {
     if (gameState === 'countdown') {
-      setCountdownValue(COUNTDOWN_SECONDS); // Reset countdown value
       countdownIntervalRef.current = setInterval(() => {
-        setCountdownValue((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownIntervalRef.current!);
-            setGameState('running');
-            setStartTime(Date.now());
-            // Focus the area to capture keypresses after countdown
-             textDisplayRef.current?.focus();
-            return 0;
-          }
-          return prev - 1;
-        });
+        // Check current value from store before decrementing
+        const currentCountdown = useTypingStore.getState().countdownValue;
+        if (currentCountdown <= 1) {
+          clearInterval(countdownIntervalRef.current!);
+          startTyping(); // Action to transition to 'running' and set startTime
+          textDisplayRef.current?.focus(); // Focus after countdown
+        } else {
+          decrementCountdown(); // Action to decrement countdown
+        }
       }, 1000);
     } else if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current); // Clear interval if state changes from countdown
+      clearInterval(countdownIntervalRef.current);
     }
 
     // Cleanup interval on component unmount or gameState change
@@ -168,14 +181,22 @@ const TypingTestPage = () => {
   }, [gameState]); // Rerun effect when gameState changes
 
 
-  // Running Timer Logic
+  // Running Timer Logic - Update local displayTime based on store's startTime
   useEffect(() => {
     if (gameState === 'running' && startTime) {
       timerIntervalRef.current = setInterval(() => {
+        // Calculate display time based on store's startTime
         setDisplayTime((Date.now() - startTime) / 1000);
-      }, 100); // Update display every 100ms
+      }, 100);
     } else if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current); // Clear interval if state is not 'running'
+      clearInterval(timerIntervalRef.current);
+      // When finishing, ensure displayTime reflects final elapsedTime
+      if (gameState === 'finished' && startTime && endTime) {
+        setDisplayTime((endTime - startTime) / 1000);
+      } else if (gameState !== 'running') {
+         // Reset display time if game stops for other reasons (e.g., restart)
+         setDisplayTime(0);
+      }
     }
 
     // Cleanup interval on component unmount or gameState change
@@ -187,29 +208,29 @@ const TypingTestPage = () => {
   }, [gameState, startTime]);
 
 
-  // Keyboard Event Listener
+  // Keyboard Event Listener - Use store actions
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (gameState !== 'running') return;
+    // Get current game state directly from store if needed, though the hook provides it
+    const currentGameState = useTypingStore.getState().gameState;
+    if (currentGameState !== 'running') return;
 
     const { key } = event;
-    const currentIndex = userInput.length;
+    const currentInputLength = useTypingStore.getState().userInput.length;
+    const textLength = useTypingStore.getState().textToType.length;
 
-    // Prevent default browser behavior for keys we handle (like space scrolling)
-    if (key === ' ' || key === 'Backspace' || (key.length === 1 && currentIndex < textToType.length)) {
+
+    // Prevent default browser behavior
+    if (key === ' ' || key === 'Backspace' || (key.length === 1 && currentInputLength < textLength)) {
         event.preventDefault();
     }
 
     if (key === 'Backspace') {
-      setUserInput((prev) => prev.slice(0, -1));
-    } else if (key.length === 1 && currentIndex < textToType.length) { // Handle printable characters
-      setUserInput((prev) => prev + key);
-      // Check if the test is finished
-      if (currentIndex + 1 === textToType.length) {
-        setGameState('finished');
-        setEndTime(Date.now());
-      }
+      backspace(); // Use store action
+    } else if (key.length === 1 && currentInputLength < textLength) { // Handle printable characters
+      typeCharacter(key); // Use store action (handles finishing the game internally)
     }
-  }, [gameState, userInput, textToType]);
+    // No need to manually set 'finished' state or endTime here, typeCharacter handles it
+  }, [backspace, typeCharacter]); // Dependencies are store actions
 
   // Attach/Detach keyboard listener
   useEffect(() => {
@@ -224,26 +245,23 @@ const TypingTestPage = () => {
   // --- Event Handlers ---
 
   const handleStart = () => {
-    if (gameState === 'idle' || gameState === 'finished') {
-      handleRestart(); // Reset state before starting countdown
-      setGameState('countdown');
+    // Get current state to check if idle or finished
+    const currentGameState = useTypingStore.getState().gameState;
+    if (currentGameState === 'idle' || currentGameState === 'finished') {
+      startGame(); // Use store action to start the countdown sequence
     }
   };
 
   const handleRestart = () => {
-    setGameState('idle');
-    setUserInput('');
-    setStartTime(null);
-    setEndTime(null);
-    setDisplayTime(0); // Reset display time
-    setCountdownValue(COUNTDOWN_SECONDS);
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-    if (timerIntervalRef.current) { // Clear running timer interval as well
+    restartGame(); // Use store action to reset everything
+    setDisplayTime(0); // Reset local display timer
+     // Clear intervals manually here as well, although store actions reset state
+     if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+     }
+     if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
-    }
-     // Focus the area to allow starting with Enter maybe? Or just prepare for typing.
+     }
      textDisplayRef.current?.focus();
   };
 
@@ -260,8 +278,8 @@ const TypingTestPage = () => {
         {/* Countdown Overlay */}
         {gameState === 'countdown' && <Countdown count={countdownValue} />}
 
-        {/* Typing Area */}
-        <TypingTextDisplay text={textToType} userInput={userInput} />
+        {/* Typing Area - Use textToType from store or constant */}
+        <TypingTextDisplay text={TEXT_TO_TYPE} userInput={userInput} />
 
         {/* Timer Display */}
         {(gameState === 'running' || gameState === 'finished') && (
@@ -305,4 +323,4 @@ const TypingTestPage = () => {
   );
 };
 
-export default TypingTestPage; // Ensure App is the default export
+export default TypingTestPage;

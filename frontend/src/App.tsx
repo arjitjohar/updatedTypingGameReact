@@ -1,5 +1,5 @@
 import TypingTestPage from './pages/TypingTestPage';
-
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 
 /**
@@ -8,9 +8,15 @@ import TypingTestPage from './pages/TypingTestPage';
 const App = () => {
 
   return (
-    <div>
-      <TypingTestPage />
-    </div>
+    <BrowserRouter>
+    
+    <Routes>
+      <Route path="typing" element={<TypingTestPage/>}/>
+    </Routes>
+
+
+    </BrowserRouter>
+
   );
 };
 

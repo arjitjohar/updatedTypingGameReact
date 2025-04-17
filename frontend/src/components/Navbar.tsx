@@ -1,3 +1,4 @@
+import { GoogleLogin } from '@react-oauth/google';
 import { Link } from 'react-router-dom';
 
 const Navbar = () => {
@@ -13,9 +14,16 @@ const Navbar = () => {
         <Link to="/leaderboard" className="text-4xl font-bold hover:text-gray-50">
           Leaderboards
         </Link>
-        <Link to="/login" className="text-4xl font-bold hover:text-gray-50">
-          Login
-        </Link>
+        <GoogleLogin
+          onSuccess={(credentialResponse: any) => {
+            console.log(credentialResponse);
+            console.log("big W huge win")
+
+          }}
+          onError={() => {
+            console.log('Login Failed');
+          }}
+        />
       </div>
     </nav>
   );

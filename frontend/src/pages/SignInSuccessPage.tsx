@@ -3,17 +3,17 @@
  * Main Application Component.
  */
 
-const LoginPage = () => {
+const SignInSuccessPage = () => {
 
 
     return (
         <div className="">
             <div className="font-sans text-6xl text-gray-300 bg-gray-900 font-bold flex justify-center items-center min-h-screen ">
-                Signup 
+                Signed in success !
             </div>
         </div>
 
     );
 };
 
-export default LoginPage;
+export default SignInSuccessPage;

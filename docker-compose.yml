@@ -9,3 +9,23 @@ services:
       - ./frontend:/app
     environment:
       - CHOKIDAR_USEPOLLING=true
+    # Ensure frontend starts after backend (optional but good practice)
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # Map host port 3000 to container port 3000
+    volumes:
+      # Mount local backend code into the container for development
+      # Use consistent path if possible, e.g., /usr/src/app as in Dockerfile
+      - ./backend:/usr/src/app
+      # Exclude node_modules from being overwritten by the volume mount
+      - /usr/src/app/node_modules
+    env_file:
+      - ./backend/.env # Load environment variables from .env file
+    # Add command for hot-reloading if desired (e.g., using nodemon)
+    # command: npm run dev # Assuming you add a "dev" script to backend/package.json

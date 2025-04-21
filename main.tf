@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+variable "bucket_name" {
+  type = string
+  description = "The name of the S3 bucket"
+  default = "arjit-unique-website-frontend"
+}
+
 # Configure the AWS Provider
 # Assumes credentials are configured via environment variables,
 # shared credentials file (~/.aws/credentials), or IAM role.
@@ -16,7 +22,7 @@ provider "aws" {
 
 # Create an S3 bucket for the frontend static website
 resource "aws_s3_bucket" "frontend_bucket" {
-  bucket = "arjit-unique-website-frontend" # Use the name you provided
+  bucket = var.bucket_name # Use the name you provided
 
   tags = {
     Name        = "Frontend Static Website"

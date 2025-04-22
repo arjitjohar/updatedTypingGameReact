@@ -5,7 +5,7 @@ import { CharacterProps, CharState, CountdownProps, ResultsDisplayProps, TypingT
 // TEXT_TO_TYPE and COUNTDOWN_SECONDS are now managed/referenced within the store,
 // but we might still need TEXT_TO_TYPE here for display logic if not selecting it from store.
 // Let's keep it here for now for the TypingTextDisplay component.
-const TEXT_TO_TYPE = "Form consider interest stand year life it also under over with may do most face when world which down up do never hand mean after since little open set do run new find here plan because public use these such may that can and still think great state leave both while same program report group seem number course company high point between part turn real change feel.";
+const TEXT_TO_TYPE = "Hello World";
 
 
 // --- Helper Functions ---
@@ -109,6 +109,11 @@ const ResultsDisplay = ({ wpm, accuracy, incorrectChars }: ResultsDisplayProps) 
 };
 
 
+
+
+
+
+
 /**
  * Main Application Component.
  */
@@ -129,6 +134,7 @@ const TypingTestPage = () => {
     decrementCountdown,
     typeCharacter,
     backspace,
+    setWPM,
   } = useTypingStore();
 
   // Local state only for things not in the global store (like display timer)
@@ -154,8 +160,57 @@ const TypingTestPage = () => {
 
   // --- Effects ---
 
-  // Countdown Timer Logic - Managed by store actions now
+  // Countdown Timer Logic & Finish Game Logic
   useEffect(() => {
+    // --- Game Finish Logic ---
+    if (gameState === 'finished' && startTime && endTime) {
+      const finalWpm = calculateWpm(correctCharacters, (endTime - startTime) / 1000);
+      setWPM(finalWpm); // Update the store with the final WPM
+
+      // Send stats to backend
+      const statsData = {
+        wpm: finalWpm,
+        dateAchieved: new Date(endTime).toISOString(), // Use endTime from store
+        textId: "default_text" // Placeholder ID for the hardcoded text
+      };
+
+      // Target the backend server URL (defaulting to port 3000)
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      fetch(`${backendUrl}/api/stats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(statsData),
+        credentials: 'include' // Send session cookie for authentication
+      })
+      .then(response => {
+        if (!response.ok) {
+          // Try to parse error message from backend if available
+          response.json().then(err => {
+             console.error('Failed to save stats:', response.status, err.message);
+          }).catch(() => {
+             // Fallback if response is not JSON
+             console.error('Failed to save stats:', response.status, response.statusText);
+          });
+          // TODO: Optionally show user feedback about the error
+        } else {
+          return response.json();
+        }
+      })
+      .then(result => {
+        if (result) {
+            console.log('Stats saved successfully:', result.message);
+            // TODO: Optionally show user feedback about success
+        }
+      })
+      .catch(error => {
+        console.error('Network error saving stats:', error);
+        // TODO: Optionally show user feedback about the network error
+      });
+    }
+
+    // --- Countdown Logic ---
     if (gameState === 'countdown') {
       countdownIntervalRef.current = setInterval(() => {
         // Check current value from store before decrementing
@@ -168,8 +223,9 @@ const TypingTestPage = () => {
           decrementCountdown(); // Action to decrement countdown
         }
       }, 1000);
-    } else if (countdownIntervalRef.current) {
+    } else if (countdownIntervalRef.current) { // Clear countdown if state is not 'countdown'
       clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null; // Reset ref
     }
 
     // Cleanup interval on component unmount or gameState change
@@ -178,7 +234,8 @@ const TypingTestPage = () => {
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [gameState]); // Rerun effect when gameState changes
+    // Add dependencies needed for the 'finished' block
+  }, [gameState, startTime, endTime, correctCharacters, setWPM, startTyping, decrementCountdown]);
 
 
   // Running Timer Logic - Update local displayTime based on store's startTime

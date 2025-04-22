@@ -4,11 +4,24 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const cors = require('cors');
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
 const app = express();
-const PORT = 3000 || 3000; // Backend port
+const PORT = process.env.PORT || 3000; // Backend port
+
+// --- AWS SDK DynamoDB Setup ---
+// TODO: Configure AWS region and credentials appropriately
+// (e.g., via environment variables, IAM role)
+const awsRegion = process.env.AWS_REGION || "us-east-1";
+const dynamoClient = new DynamoDBClient({ region: awsRegion });
+const docClient = DynamoDBDocumentClient.from(dynamoClient);
+const tableName = "TypingGameUsers"; // The table name created by Terraform
 
 // --- Middleware ---
+
+// Body Parser for JSON requests
+app.use(express.json());
 
 // CORS Configuration
 // Allow requests from the frontend development server
@@ -83,6 +96,14 @@ passport.deserializeUser((obj, done) => {
     done(null, obj);
 });
 
+// Middleware to ensure user is authenticated
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.status(401).json({ message: 'Unauthorized' });
+}
+
 // --- Routes ---
 
 // Route to initiate Google OAuth flow
@@ -94,9 +115,40 @@ app.get('/auth/google',
 // Google redirects the user here after successful authentication
 app.get('/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login-failed' }), // Authenticate session
-    (req, res) => {
+    async (req, res) => { // Make handler async
         // Successful authentication!
         console.log('Successfully authenticated, user:', req.user?.displayName);
+
+        // Save/Update user profile in DynamoDB
+        const userProfile = req.user; // Passport attaches user profile here
+        if (userProfile && userProfile.id) { // Ensure we have a user and ID (sub)
+            const params = {
+                TableName: tableName,
+                Item: {
+                    UserID: userProfile.id, // Use Google 'sub' as the UserID (Partition Key)
+                    DataType: 'PROFILE',    // Sort Key for profile data
+                    Email: userProfile.emails?.[0]?.value,
+                    Name: userProfile.displayName,
+                    GivenName: userProfile.name?.givenName,
+                    FamilyName: userProfile.name?.familyName,
+                    Picture: userProfile.photos?.[0]?.value,
+                    LastLogin: new Date().toISOString(), // Add a last login timestamp
+                },
+            };
+
+            try {
+                await docClient.send(new PutCommand(params));
+                console.log(`User profile saved/updated for UserID: ${userProfile.id}`);
+            } catch (dbError) {
+                console.error("Error saving user profile to DynamoDB:", dbError);
+                // Decide if you want to block login on DB error or just log it
+                // For now, we'll log and continue the redirect
+            }
+        } else {
+            console.error("User profile data missing after authentication.");
+            // Handle appropriately - maybe redirect to an error page?
+        }
+
         // Redirect the user to the frontend success page
         // TODO: Update frontend URL if needed
         res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173/signin-success');
@@ -141,6 +193,48 @@ app.get('/api/env', (req, res) => {
         googleClientSecret: process.env.GOOGLE_CLIENT_SECRET
     });
 });
+
+// Route to save typing game stats
+app.post('/api/stats', ensureAuthenticated, async (req, res) => {
+    const { wpm, dateAchieved, textId } = req.body; // Get stats from request body
+    const userId = req.user?.id; // Get UserID from the authenticated session
+
+    // Basic validation
+    if (!userId || typeof wpm !== 'number' || !dateAchieved || !textId) {
+        return res.status(400).json({ message: 'Missing required stat fields (userId, wpm, dateAchieved, textId)' });
+    }
+
+    // Use the dateAchieved for the sort key, ensuring it's in ISO format
+    // If it's not already ISO, attempt to convert. Handle potential errors.
+    let isoDate;
+    try {
+        isoDate = new Date(dateAchieved).toISOString();
+    } catch (dateError) {
+        console.error("Invalid date format received:", dateAchieved, dateError);
+        return res.status(400).json({ message: 'Invalid date format for dateAchieved. Please use ISO 8601 format.' });
+    }
+
+    const params = {
+        TableName: tableName,
+        Item: {
+            UserID: userId,
+            DataType: `STAT#${isoDate}`, // Sort Key: STAT# followed by ISO date
+            WPM: wpm,
+            TextID: textId,
+            DateAchieved: isoDate, // Store the date as an attribute as well
+        },
+    };
+
+    try {
+        await docClient.send(new PutCommand(params));
+        console.log(`Stats saved for UserID: ${userId}, Date: ${isoDate}`);
+        res.status(201).json({ message: 'Stats saved successfully', item: params.Item });
+    } catch (dbError) {
+        console.error("Error saving stats to DynamoDB:", dbError);
+        res.status(500).json({ message: 'Failed to save stats' });
+    }
+});
+
 
 // --- Start Server ---
 app.listen(PORT, () => {

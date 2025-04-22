@@ -78,3 +78,32 @@ output "website_endpoint" {
   value = aws_s3_bucket_website_configuration.frontend_website.website_endpoint
   description = "The S3 bucket website endpoint URL"
 }
+
+# Create a DynamoDB table for user data and game stats
+resource "aws_dynamodb_table" "typing_game_users" {
+  name           = "TypingGameUsers"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "UserID" # Partition Key
+  range_key      = "DataType" # Sort Key
+
+  attribute {
+    name = "UserID"
+    type = "S" # String type for the user sub
+  }
+
+  attribute {
+    name = "DataType"
+    type = "S" # String type for distinguishing data (e.g., PROFILE, STAT#timestamp)
+  }
+
+  tags = {
+    Name        = "TypingGameUsers"
+    Environment = "Production" # Or your desired environment
+  }
+}
+
+# Output the DynamoDB table name
+output "dynamodb_table_name" {
+  value = aws_dynamodb_table.typing_game_users.name
+  description = "The name of the DynamoDB table"
+}

@@ -30,9 +30,10 @@ export type ResultsDisplayProps = {
 };
 
 
+
 // --- Constants ---
 // Keep constants accessible, maybe move them to a shared constants file later
-const TEXT_TO_TYPE = "Form consider interest stand year life it also under over with may do most face when world which down up do never hand mean after since little open set do run new find here plan because public use these such may that can and still think great state leave both while same program report group seem number course company high point between part turn real change feel.";
+const TEXT_TO_TYPE = "Hello World";
 const COUNTDOWN_SECONDS = 3;
 
 interface TypingState {
@@ -42,6 +43,9 @@ interface TypingState {
   countdownValue: number;
   startTime: number | null;
   endTime: number | null;
+  wpm: number | null;
+
+
 
   // Actions
   setUserInput: (input: string) => void;
@@ -52,6 +56,7 @@ interface TypingState {
   decrementCountdown: () => void;
   typeCharacter: (key: string) => void;
   backspace: () => void;
+  setWPM: (input: number) => void;
 }
 
 export const useTypingStore = create<TypingState>((set) => ({
@@ -62,6 +67,7 @@ export const useTypingStore = create<TypingState>((set) => ({
   countdownValue: COUNTDOWN_SECONDS,
   startTime: null,
   endTime: null,
+  wpm: null,
 
   // Actions Implementation
   setUserInput: (input) => set({ userInput: input }),
@@ -74,6 +80,7 @@ export const useTypingStore = create<TypingState>((set) => ({
       endTime: null,
       countdownValue: COUNTDOWN_SECONDS,
       gameState: 'countdown',
+      wpm: null,
     });
   },
 
@@ -95,6 +102,7 @@ export const useTypingStore = create<TypingState>((set) => ({
       countdownValue: COUNTDOWN_SECONDS,
       startTime: null,
       endTime: null,
+      wpm: null
     });
   },
 
@@ -128,4 +136,7 @@ export const useTypingStore = create<TypingState>((set) => ({
       return { userInput: state.userInput.slice(0, -1) };
     });
   },
+
+  setWPM: (newWpm) => set({ wpm: newWpm }),
+
 }));

@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import Navbar from './components/Navbar';
 import LeaderboardPage from './pages/LeaderboardPage';
 import SignInSuccessPage from './pages/SignInSuccessPage';
+import { AuthProvider } from './context/AuthContext';
 
 /**
  * Main Application Component.
@@ -12,6 +13,7 @@ import SignInSuccessPage from './pages/SignInSuccessPage';
 const App = () => {
 
   return (
+    <AuthProvider>
       <BrowserRouter>
         <Navbar />
         <Routes>
@@ -21,6 +23,7 @@ const App = () => {
           <Route path="/signinsuccess" element={<SignInSuccessPage />} />
         </Routes>
       </BrowserRouter>
+    </AuthProvider>
   );
 };
 

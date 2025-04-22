@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios'; // Import axios
 
 // Define an interface for the leaderboard entry structure
 interface LeaderboardEntry {
@@ -23,6 +24,7 @@ const formatDate = (isoDateString: string): string => {
             minute: '2-digit',
         });
     } catch (e) {
+        console.error("Error formatting date:", isoDateString, e);
         return 'Invalid Date';
     }
 };
@@ -35,41 +37,52 @@ const LeaderboardPage = () => {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        // Function to fetch leaderboard data
-        const fetchLeaderboard = async () => {
-            setIsLoading(true);
-            setError(null);
-            // Target the backend server URL (adjust if needed)
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+    // Function to fetch leaderboard data using Axios
+    const fetchLeaderboard = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        // Target the backend server URL (adjust if needed)
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+        const leaderboardEndpoint = `${backendUrl}/api/leaderboard`;
 
-            try {
-                const response = await fetch(`${backendUrl}/api/leaderboard`);
-                if (!response.ok) {
-                    let errorMsg = `Error: ${response.status}`;
-                    try {
-                        const errData = await response.json();
-                        errorMsg = errData.message || errorMsg;
-                    } catch (_) { /* Ignore if response is not JSON */ }
-                    throw new Error(errorMsg);
+        try {
+            // Use axios.get to fetch data
+            const response = await axios.get<LeaderboardEntry[]>(leaderboardEndpoint, {
+                 // No 'withCredentials' needed for a public GET usually,
+                 // unless your leaderboard route requires authentication.
+                 // If it does, add: withCredentials: true
+            });
+            setLeaderboardData(response.data); // Axios puts data directly in response.data
+        } catch (err) {
+            console.error("Failed to fetch leaderboard:", err);
+            let errorMsg = 'An unknown error occurred while fetching the leaderboard.';
+            if (axios.isAxiosError(err)) { // Check if it's an Axios error
+                 if (err.response) {
+                    // Server responded with a status code outside the 2xx range
+                    console.error('Leaderboard fetch error - Server responded:', err.response.status, err.response.data);
+                    errorMsg = err.response.data?.message || `Server error ${err.response.status}`;
+                } else if (err.request) {
+                    // Request was made but no response received
+                    console.error('Leaderboard fetch error - No response:', err.request);
+                    errorMsg = 'Could not connect to the server to fetch leaderboard.';
+                } else {
+                    // Setup error
+                    console.error('Leaderboard fetch error - Request setup:', err.message);
+                    errorMsg = `Error fetching leaderboard: ${err.message}`;
                 }
-                const data: LeaderboardEntry[] = await response.json();
-                setLeaderboardData(data);
-            } catch (err) {
-                console.error("Failed to fetch leaderboard:", err);
-                setError(err instanceof Error ? err.message : 'An unknown error occurred');
-            } finally {
-                setIsLoading(false);
+            } else if (err instanceof Error) {
+                 errorMsg = err.message;
             }
-        };
+            setError(errorMsg);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []); // Empty dependency array ensures this useCallback doesn't change
 
-        fetchLeaderboard(); // Fetch data on component mount
-
-        // Optional: Setup polling interval if you want the leaderboard to auto-refresh
-        // const intervalId = setInterval(fetchLeaderboard, 60000); // Refresh every 60 seconds
-        // return () => clearInterval(intervalId); // Cleanup interval on unmount
-
-    }, []); // Empty dependency array means this runs once on mount
+    // Fetch data on component mount
+    useEffect(() => {
+        fetchLeaderboard();
+    }, [fetchLeaderboard]); // Include fetchLeaderboard in dependency array
 
     return (
         <div className="min-h-screen bg-gray-900 text-gray-300 flex flex-col items-center pt-16 pb-12 font-sans px-4">
@@ -77,17 +90,18 @@ const LeaderboardPage = () => {
             <p className='text-lg text-gray-400 mb-10'>Top 20 High Scores (WPM)</p>
 
             {isLoading && (
-                <div className="text-xl text-yellow-400">Loading leaderboard...</div>
+                <div className="text-xl text-yellow-400 animate-pulse">Loading leaderboard...</div>
             )}
 
             {error && (
-                <div className="text-xl text-red-500 bg-red-100 border border-red-500 rounded-md p-4">
-                    Failed to load leaderboard: {error}
+                <div className="w-full max-w-2xl text-center text-red-400 bg-red-900 bg-opacity-30 border border-red-600 rounded-md p-4">
+                    <p className="font-semibold">Failed to load leaderboard:</p>
+                    <p className="text-sm mt-1">{error}</p>
                 </div>
             )}
 
             {!isLoading && !error && leaderboardData.length === 0 && (
-                <div className="text-xl text-gray-500">No scores recorded yet!</div>
+                <div className="text-xl text-gray-500">No scores recorded yet! Be the first!</div>
             )}
 
             {!isLoading && !error && leaderboardData.length > 0 && (
@@ -107,10 +121,7 @@ const LeaderboardPage = () => {
                                 <tr key={`${entry.UserID}-${entry.DateAchieved}`} className="border-b border-gray-700 hover:bg-gray-750 transition duration-150 ease-in-out">
                                     <td className="py-3 px-4 text-center font-semibold">{index + 1}</td>
                                     <td className="py-3 px-4">
-                                        {/* Display Name (assumed to be in entry) */}
-                                        {entry.Name}
-                                        {/* Optionally show UserID if needed for debugging or clarity */}
-                                        {/* <span className="text-xs text-gray-500 block">ID: {entry.UserID.substring(0, 8)}...</span> */}
+                                        {entry.Name || 'Anonymous'} {/* Fallback name */}
                                     </td>
                                     <td className="py-3 px-4 text-center font-bold text-yellow-400 text-lg">{entry.WPM}</td>
                                     <td className="py-3 px-4 text-xs">{formatDate(entry.DateAchieved)}</td>
@@ -123,8 +134,8 @@ const LeaderboardPage = () => {
             )}
 
              <button
-                 onClick={() => { /* Maybe trigger a manual refresh? */ setIsLoading(true); setError(null); /* Call fetch function again */}}
-                 className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                 onClick={fetchLeaderboard} // Call fetch function directly
+                 className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                  disabled={isLoading}
              >
                  {isLoading ? 'Refreshing...' : 'Refresh Leaderboard'}

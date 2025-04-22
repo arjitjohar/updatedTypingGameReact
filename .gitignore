@@ -32,3 +32,9 @@ docker-compose-examples
 .terraform 
 terraform.tfstate
 .terraform.lock.hcl
+
+# Local env files
+.env.local
+.env.development.local
+.env.test.local
+*.env

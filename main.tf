@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+variable "bucket_name" {
+  type = string
+  description = "The name of the S3 bucket"
+  default = "arjit-unique-website-frontend"
+}
+
 # Configure the AWS Provider
 # Assumes credentials are configured via environment variables,
 # shared credentials file (~/.aws/credentials), or IAM role.
@@ -16,7 +22,7 @@ provider "aws" {
 
 # Create an S3 bucket for the frontend static website
 resource "aws_s3_bucket" "frontend_bucket" {
-  bucket = "arjit-unique-website-frontend" # Use the name you provided
+  bucket = var.bucket_name # Use the name you provided
 
   tags = {
     Name        = "Frontend Static Website"
@@ -71,4 +77,33 @@ resource "aws_s3_bucket_policy" "frontend_bucket_policy" {
 output "website_endpoint" {
   value = aws_s3_bucket_website_configuration.frontend_website.website_endpoint
   description = "The S3 bucket website endpoint URL"
+}
+
+# Create a DynamoDB table for user data and game stats
+resource "aws_dynamodb_table" "typing_game_users" {
+  name           = "TypingGameUsers"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "UserID" # Partition Key
+  range_key      = "DataType" # Sort Key
+
+  attribute {
+    name = "UserID"
+    type = "S" # String type for the user sub
+  }
+
+  attribute {
+    name = "DataType"
+    type = "S" # String type for distinguishing data (e.g., PROFILE, STAT#timestamp)
+  }
+
+  tags = {
+    Name        = "TypingGameUsers"
+    Environment = "Production" # Or your desired environment
+  }
+}
+
+# Output the DynamoDB table name
+output "dynamodb_table_name" {
+  value = aws_dynamodb_table.typing_game_users.name
+  description = "The name of the DynamoDB table"
 }

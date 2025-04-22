@@ -96,9 +96,39 @@ resource "aws_dynamodb_table" "typing_game_users" {
     type = "S" # String type for distinguishing data (e.g., PROFILE, STAT#timestamp)
   }
 
+  # --- GSI Attributes (Must be defined here if used as GSI keys) ---
+  attribute {
+    name = "GSIPK" # Attribute for GSI Partition Key (e.g., "STAT_RECORD")
+    type = "S"
+  }
+  attribute {
+    name = "WPM" # Attribute for GSI Sort Key (Words Per Minute)
+    type = "N"  # WPM should be stored as a number for sorting
+  }
+  # Note: Attributes like DateAchieved, TextID, Name etc., used only for projection
+  # do NOT need to be defined in the top-level 'attribute' blocks.
+
   tags = {
     Name        = "TypingGameUsers"
     Environment = "Production" # Or your desired environment
+  }
+
+  # --- Global Secondary Index for Leaderboard ---
+  global_secondary_index {
+    name            = "WpmLeaderboardIndex" # Choose a descriptive name
+    hash_key        = "GSIPK"               # Partition Key for the GSI
+    range_key       = "WPM"                 # Sort Key for the GSI (to sort by score)
+    projection_type = "INCLUDE"             # Project only specific needed attributes
+
+    # List attributes needed for the leaderboard display
+    non_key_attributes = [
+      "UserID",
+      "DateAchieved",
+      "TextID",
+      "Name" # Include Name if you plan to denormalize it onto the STAT item later
+             # Otherwise, you'll fetch it separately based on UserID
+    ]
+    # Billing mode for GSI inherits from the table's billing_mode (PAY_PER_REQUEST)
   }
 }
 
@@ -106,4 +136,16 @@ resource "aws_dynamodb_table" "typing_game_users" {
 output "dynamodb_table_name" {
   value = aws_dynamodb_table.typing_game_users.name
   description = "The name of the DynamoDB table"
+}
+
+# Output the DynamoDB table ARN (useful for IAM policies)
+output "dynamodb_table_arn" {
+  value       = aws_dynamodb_table.typing_game_users.arn
+  description = "The ARN of the DynamoDB table"
+}
+
+# Output the GSI name (useful for backend code)
+output "dynamodb_gsi_name" {
+  value       = "WpmLeaderboardIndex" # Must match the GSI name defined above
+  description = "The name of the WPM Leaderboard GSI"
 }

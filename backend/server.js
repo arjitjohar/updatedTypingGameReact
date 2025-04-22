@@ -5,7 +5,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const cors = require('cors');
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand, BatchGetItemCommand } = require("@aws-sdk/lib-dynamodb"); // Added QueryCommand, GetCommand, BatchGetItemCommand
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Backend port
@@ -186,21 +186,107 @@ app.get('/', (req, res) => {
     res.send('Backend server is running!');
 });
 
-app.get('/api/env', (req, res) => {
-    res.json({ 
-        port: process.env.PORT,
-        googleClientId: process.env.GOOGLE_CLIENT_ID,
-        googleClientSecret: process.env.GOOGLE_CLIENT_SECRET
-    });
+const GSI_NAME = "WpmLeaderboardIndex"; // Store GSI name (matches Terraform)
+
+// --- New Leaderboard Route ---
+app.get('/api/leaderboard', async (req, res) => {
+    const limit = 20; // Number of top scores to fetch
+
+    const params = {
+        TableName: tableName,
+        IndexName: GSI_NAME, // Query the GSI
+        KeyConditionExpression: "#gsi_pk = :gsi_pk_val", // Query condition for the GSI partition key
+        ExpressionAttributeNames: {
+            "#gsi_pk": "GSIPK" // Placeholder for the GSI PK attribute name
+        },
+        ExpressionAttributeValues: {
+            ":gsi_pk_val": "STAT_RECORD" // The static value we use for GSI PK
+        },
+        ScanIndexForward: false, // Sort descending (highest WPM first)
+        Limit: limit // Get only the top N results
+    };
+
+    try {
+        console.log("Querying leaderboard GSI:", JSON.stringify(params));
+        const command = new QueryCommand(params);
+        const data = await docClient.send(command);
+        console.log("Leaderboard GSI query successful. Items received:", data.Items?.length);
+
+        let leaderboardEntries = data.Items || [];
+
+        // --- Option A: Name was Denormalized (included in STAT record) ---
+        // If you stored 'Name' directly on the STAT record (as shown in the modified /api/stats),
+        // the 'leaderboardEntries' already contain the name. No further action needed here.
+
+        // --- Option B: Fetch Names Separately (if NOT denormalized) ---
+        // Uncomment this block if you did *not* store 'Name' on the STAT record.
+        /*
+        if (leaderboardEntries.length > 0) {
+            const userIds = [...new Set(leaderboardEntries.map(entry => entry.UserID))]; // Get unique UserIDs
+
+            // Prepare keys for BatchGetItem to fetch PROFILE items
+            const profileKeys = userIds.map(userId => ({
+                UserID: userId,
+                DataType: 'PROFILE'
+            }));
+
+            if (profileKeys.length > 0) {
+                const batchGetParams = {
+                    RequestItems: {
+                        [tableName]: {
+                            Keys: profileKeys,
+                            ProjectionExpression: "UserID, #n", // Fetch only UserID and Name
+                            ExpressionAttributeNames: { "#n": "Name" } // Alias for 'Name' attribute
+                        }
+                    }
+                };
+                console.log("Fetching user profiles for leaderboard:", JSON.stringify(batchGetParams));
+                const batchGetCommand = new BatchGetItemCommand(batchGetParams);
+                const profileData = await docClient.send(batchGetCommand);
+
+                const profilesMap = new Map();
+                profileData.Responses?.[tableName]?.forEach(profile => {
+                    profilesMap.set(profile.UserID, profile.Name || 'Unknown User');
+                });
+                console.log("Profiles fetched:", profilesMap.size);
+
+
+                // Add the fetched name to each leaderboard entry
+                leaderboardEntries = leaderboardEntries.map(entry => ({
+                    ...entry,
+                    Name: profilesMap.get(entry.UserID) || 'Unknown User'
+                }));
+            }
+        }
+        */
+        // --- End Option B ---
+
+
+        res.status(200).json(leaderboardEntries);
+
+    } catch (dbError) {
+        console.error("Error querying leaderboard from DynamoDB GSI:", dbError);
+        res.status(500).json({ message: 'Failed to fetch leaderboard data' });
+    }
 });
+
+
+
+
+
+
+
+
+
 
 // Route to save typing game stats
 app.post('/api/stats', ensureAuthenticated, async (req, res) => {
     const { wpm, dateAchieved, textId } = req.body; // Get stats from request body
     const userId = req.user?.id; // Get UserID from the authenticated session
+    const userName = req.user?.displayName; // Get user's name from session (optional denormalization)
 
     // Basic validation
-    if (!userId || typeof wpm !== 'number' || !dateAchieved || !textId) {
+    if (!userId || typeof wpm !== 'number' || wpm < 0 || !dateAchieved || !textId) { // Added wpm >= 0 check
         return res.status(400).json({ message: 'Missing required stat fields (userId, wpm, dateAchieved, textId)' });
     }
 
@@ -222,6 +308,15 @@ app.post('/api/stats', ensureAuthenticated, async (req, res) => {
             WPM: wpm,
             TextID: textId,
             DateAchieved: isoDate, // Store the date as an attribute as well
+
+            // --- Add GSI Partition Key ---
+            GSIPK: "STAT_RECORD", // Static value for the GSI partition
+
+            // --- Optional: Denormalize User Name ---
+            // Store the user's name directly on the stat record.
+            // Pros: Faster leaderboard reads (no extra lookup).
+            // Cons: Data duplication; if name changes, old records aren't updated.
+            Name: userName || 'Unknown User' // Get name from passport user object
         },
     };
 
@@ -234,6 +329,8 @@ app.post('/api/stats', ensureAuthenticated, async (req, res) => {
         res.status(500).json({ message: 'Failed to save stats' });
     }
 });
+
+
 
 
 // --- Start Server ---

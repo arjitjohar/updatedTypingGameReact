@@ -2,7 +2,6 @@
  * Sign In Success Page Component.
  * Displays a welcome message after successful Google OAuth sign-in.
  */
-import React from 'react';
 import { useLocation } from 'react-router-dom';
 
 const SignInSuccessPage = () => {

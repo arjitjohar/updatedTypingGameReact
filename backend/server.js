@@ -1,6 +1,4 @@
 require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const cors = require('cors');
@@ -10,26 +8,65 @@ const { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand, BatchGetIt
 const app = express();
 const PORT = process.env.PORT || 3000; // Backend port
 
+
+// In backend server.js
+const session = require('express-session');
+const DynamoDBStore = require('connect-dynamodb')(session);
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { /* ... secure options ... */ },
+    store: new DynamoDBStore({
+        table: 'TypingGameSessions', // Choose a name, e.g., 'TypingGameSessions'
+        client: dynamoClient, // Pass your initialized DynamoDB client
+        // Optional: adjust read/write capacity if not using on-demand for session table
+    })
+}));
+
+
+
 // --- AWS SDK DynamoDB Setup ---
 // TODO: Configure AWS region and credentials appropriately
 // (e.g., via environment variables, IAM role)
 const awsRegion = process.env.AWS_REGION || "us-east-1";
 const dynamoClient = new DynamoDBClient({ region: awsRegion });
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
-const tableName = "TypingGameUsers"; // The table name created by Terraform
+
+
+const tableName = process.env.DYNAMODB_TABLE_USERS; // for the users
+const textsTableName = process.env.DYNAMODB_TABLE_TEXTS;
+const gsiName = process.env.DYNAMODB_GSI_WPM;
+const sessionsTableName = process.env.DYNAMODB_TABLE_SESSIONS; // session table for connect dynamodb
+
 
 // --- Middleware ---
 
 // Body Parser for JSON requests
 app.use(express.json());
+// In server.js
 
-// CORS Configuration
-// Allow requests from the frontend development server
-// TODO: Update origin in production
+// Read the frontend URL from the environment variable set by Beanstalk/Terraform
+const allowedOrigin = process.env.FRONTEND_URL; // e.g., "https://arjitjohar.com"
+
+// CORS Configuration for Production
 app.use(cors({
-    origin: 'http://localhost:5173' || 'http://localhost:5173', // Allow frontend origin
-    credentials: true // Allow cookies to be sent
+    origin: allowedOrigin, // Use the environment variable
+    credentials: true      // Allow cookies to be sent from the allowed origin
 }));
+
+// Add a check to ensure the variable is set in production
+if (process.env.NODE_ENV === 'production' && !allowedOrigin) {
+    console.error("FATAL ERROR: FRONTEND_URL environment variable is not set.");
+    // Optionally exit the process if the frontend URL is critical
+    // process.exit(1);
+}
+
+// Fallback for local development (if needed, outside of production check)
+// if (process.env.NODE_ENV !== 'production') {
+//     app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+// }
 
 // Session Management
 // TODO: Use a proper session store for production (e.g., connect-mongo, connect-redis)
@@ -193,7 +230,7 @@ app.get('/api/leaderboard', async (req, res) => {
     const limit = 20; // Number of top scores to fetch
 
     const params = {
-        TableName: tableName,
+        TableName: gsiName,
         IndexName: GSI_NAME, // Query the GSI
         KeyConditionExpression: "#gsi_pk = :gsi_pk_val", // Query condition for the GSI partition key
         ExpressionAttributeNames: {
@@ -270,6 +307,66 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
+
+
+// Add near your other routes in server.js
+
+// --- Route to get typing texts ---
+// Example: GET /api/texts?theme=novel&limit=5
+// Example: GET /api/texts?theme=technical
+app.get('/api/texts', async (req, res) => {
+    const { theme, limit } = req.query;
+
+    if (!theme) {
+        return res.status(400).json({ message: 'Missing required query parameter: theme' });
+    }
+
+    // Parse limit, default to fetching a reasonable number (e.g., 10) if not specified or invalid
+    let queryLimit = parseInt(limit, 10);
+    if (isNaN(queryLimit) || queryLimit <= 0) {
+        queryLimit = 10; // Default limit
+    }
+
+    const params = {
+        TableName: textsTableName,
+        // Query by the Partition Key (Theme)
+        KeyConditionExpression: "#th = :theme_val",
+        ExpressionAttributeNames: {
+            "#th": "Theme"
+        },
+        ExpressionAttributeValues: {
+            ":theme_val": theme // The theme requested by the client
+        },
+        // Limit the number of items returned by the query itself
+        Limit: queryLimit
+        // We don't specify ScanIndexForward, so default is ascending by TextID.
+        // If you want random texts, you'd fetch more than needed and randomize server-side.
+    };
+
+    try {
+        console.log(`Querying texts for theme: ${theme}, limit: ${queryLimit}`);
+        const command = new QueryCommand(params);
+        const data = await docClient.send(command);
+        console.log(`Found ${data.Items?.length || 0} texts for theme: ${theme}`);
+
+        // Optional: If you fetched more than needed (e.g., Limit: 50) and want to randomize:
+        // let items = data.Items || [];
+        // if (items.length > queryLimit) {
+        //   for (let i = items.length - 1; i > 0; i--) {
+        //     const j = Math.floor(Math.random() * (i + 1));
+        //     [items[i], items[j]] = [items[j], items[i]];
+        //   }
+        //   items = items.slice(0, queryLimit);
+        // }
+        // res.status(200).json(items);
+
+        res.status(200).json(data.Items || []); // Return the items fetched (up to the limit)
+
+    } catch (dbError) {
+        console.error(`Error querying texts for theme ${theme}:`, dbError);
+        res.status(500).json({ message: 'Failed to fetch typing texts' });
+    }
+});
 
 
 

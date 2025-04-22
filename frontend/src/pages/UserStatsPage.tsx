@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios'; // Import axios
+import { useAuth } from '../context/AuthContext';
 
 // Define an interface for the stat entry structure (can reuse or adapt LeaderboardEntry)
 interface UserStatEntry {
@@ -35,6 +36,10 @@ const formatDate = (isoDateString: string): string => {
         return 'Invalid Date';
     }
 };
+
+
+
+
 
 /**
  * User Stats Page Component.
@@ -106,6 +111,10 @@ const UserStatsPage = () => {
     }, [userStats, sortBy]);
 
 
+
+    const {login} = useAuth();
+
+
     return (
         <div className="min-h-screen bg-gray-900 text-gray-300 flex flex-col items-center pt-16 pb-12 font-sans px-4">
             <h1 className='text-5xl font-bold text-yellow-400 mb-8'> My Stats </h1>
@@ -136,9 +145,9 @@ const UserStatsPage = () => {
                     <p className="font-semibold">Could not load stats:</p>
                     <p className="text-sm mt-1">{error}</p>
                      {/* Optionally add a login button if error is 401 */}
-                     {error.includes('log in') && (
+                     {error.includes('log in')  && (
                          <button
-                             onClick={() => window.location.href = '/login'} // Adjust login path if needed
+                             onClick={() => login()} // Adjust login path if needed
                              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md text-sm"
                          >
                              Go to Login
@@ -164,7 +173,7 @@ const UserStatsPage = () => {
                             </tr>
                         </thead>
                         <tbody className="text-gray-200 text-sm font-light">
-                            {sortedStats.map((entry, index) => (
+                            {sortedStats.map((entry) => (
                                 <tr key={entry.DataType} className="border-b border-gray-700 hover:bg-gray-750 transition duration-150 ease-in-out">
                                     <td className="py-3 px-4 text-center font-bold text-yellow-400 text-lg">{entry.WPM}</td>
                                     <td className="py-3 px-4 text-xs">{formatDate(entry.DateAchieved || entry.DataType)}</td>
@@ -185,6 +194,9 @@ const UserStatsPage = () => {
              </button>
 
         </div>
+
+            
+
     );
 };
 

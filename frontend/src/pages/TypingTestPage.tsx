@@ -1,15 +1,35 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react'; // Added useState back
-import axios from 'axios'; // Import axios
-import { CharacterProps, CharState, CountdownProps, ResultsDisplayProps, TypingTextDisplayProps, useTypingStore } from '../store/typingStore'; // Import the store
+import { useEffect, useCallback, useRef, useState } from 'react'; // Keep useState for displayTime
+import axios from 'axios';
+import {
+    useTypingStore,
+    TypingTextItem, // Import interface if needed elsewhere
+} from '../store/typingStore'; // Adjust path as needed
 
-// --- Constants ---
-// Using text from the store now, but keeping this for TypingTextDisplay if needed directly
-const TEXT_TO_TYPE_FALLBACK = "Hello World"; // Fallback if store text isn't ready
+// --- Define Prop Interfaces ---
+type CharState = 'pending' | 'correct' | 'incorrect';
+
+interface CountdownProps {
+    count: number;
+}
+
+interface ResultsDisplayProps {
+    wpm: number;
+    accuracy: number;
+    incorrectChars: number;
+}
+
+interface TypingTextDisplayProps {
+    text: string;
+    userInput: string;
+}
 
 // --- Helper Functions ---
 /**
  * Calculates Words Per Minute (WPM).
  */
+
+// Define structure for fetched text item
+
 const calculateWpm = (correctChars: number, timeSeconds: number): number => {
     if (timeSeconds <= 0) return 0;
     const wordsTyped = correctChars / 5;
@@ -23,53 +43,44 @@ const calculateWpm = (correctChars: number, timeSeconds: number): number => {
  */
 const calculateAccuracy = (correctChars: number, totalTyped: number): number => {
     if (totalTyped === 0) return 100;
-    return Math.round((correctChars / totalTyped) * 100);
+    const accuracy = (correctChars / totalTyped) * 100;
+
+    return Math.round(accuracy * 10) / 10;
 };
 
 
 // --- Components ---
 
 /**
- * Renders a single character with appropriate styling based on its state.
- */
-const Character = React.memo(({ char, state, isCursor }: CharacterProps) => {
-    let colorClass = 'text-gray-500'; // Default: pending
-    if (state === 'correct') {
-        colorClass = 'text-green-400';
-    } else if (state === 'incorrect') {
-        colorClass = 'text-red-500';
-    }
-
-    const cursorClass = isCursor ? 'border-b-2 border-yellow-400 animate-pulse' : '';
-    const displayChar = char === ' ' ? '\u00A0' : char; // Use non-breaking space
-
-    return (
-        <span className={`${colorClass} ${cursorClass} transition-colors duration-100 ease-in-out`}>
-            {displayChar}
-        </span>
-    );
-});
-
-/**
  * Displays the text to be typed, highlighting correct/incorrect/pending characters.
  */
 const TypingTextDisplay = ({ text, userInput }: TypingTextDisplayProps) => {
-    const chars = text.split('');
-    const userInputLength = userInput.length;
 
-    return (
-        <div className="text-2xl font-mono tracking-wider leading-relaxed break-words whitespace-pre-wrap p-4 bg-gray-800 rounded-md shadow-inner">
-            {chars.map((char, index) => {
-                let state: CharState = 'pending';
-                if (index < userInputLength) {
-                    state = char === userInput[index] ? 'correct' : 'incorrect';
-                }
-                const isCursor = index === userInputLength;
-                return <Character key={`${char}-${index}`} char={char} state={state} isCursor={isCursor} />;
-            })}
-        </div>
-    );
+    const chars = text.split('');
+     const userInputLength = userInput.length;
+
+     return (
+         <div className="text-2xl font-mono tracking-wider leading-relaxed break-words whitespace-pre-wrap p-4 bg-gray-800 rounded-md shadow-inner min-h-[10rem]"> {/* Added min-height */}
+             {chars.map((char: string, index: number) => {
+                 let state: CharState = 'pending';
+                 if (index < userInputLength) {
+                     state = char === userInput[index] ? 'correct' : 'incorrect';
+                 }
+                 const isCursor = index === userInputLength;
+                 // Ensure Character component is defined or imported
+                 // return <Character key={`${char}-${index}`} char={char} state={state} isCursor={isCursor} />;
+                 const displayChar = char === ' ' ? '\u00A0' : char;
+                 let colorClass = 'text-gray-500'; // Default: pending
+                 if (state === 'correct') colorClass = 'text-green-400';
+                 else if (state === 'incorrect') colorClass = 'text-red-500';
+                 const cursorClass = isCursor ? 'border-b-2 border-yellow-400 animate-pulse' : '';
+                 return <span key={`${char}-${index}`} className={`${colorClass} ${cursorClass} transition-colors duration-100 ease-in-out`}>{displayChar}</span>;
+
+             })}
+         </div>
+     );
 };
+
 
 /**
  * Displays the countdown timer.
@@ -96,41 +107,52 @@ const ResultsDisplay = ({ wpm, accuracy, incorrectChars }: ResultsDisplayProps) 
     );
 };
 
+
 /**
  * Main Application Component.
  */
 const TypingTestPage = () => {
-    // Get state and actions from the Zustand store
+    // Get ALL relevant state and actions from the Zustand store
     const {
-        textToType,
+        // Game State
         userInput,
         gameState,
         countdownValue,
         startTime,
         endTime,
-        startGame,
+        // Text State
+        textToType, // The actual string to display/type
+        currentTextItem, // The full text object (for TextID etc.)
+        isLoadingText,
+        textError,
+        // Actions
+        startGame, // Renamed: Starts countdown
         startTyping,
-        restartGame,
+        restartGame, // Renamed: Resets game progress
         decrementCountdown,
         typeCharacter,
         backspace,
         setWPM,
+        // Text Fetch Actions
+        fetchTextStart,
+        fetchTextSuccess,
+        fetchTextError,
     } = useTypingStore();
 
-    // Use text from store, provide fallback
-    const currentText = textToType || TEXT_TO_TYPE_FALLBACK;
-
-    // Local state for display timer
-    const [displayTime, setDisplayTime] = useState<number>(0); // Use React.useState
+    // Local state ONLY for things not in global store (like display timer)
+    const [displayTime, setDisplayTime] = useState<number>(0);
 
     const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const textDisplayRef = useRef<HTMLDivElement>(null); // Ref for focus management
 
-    // Derived state for results
+    // --- Derived state for results (calculations remain similar) ---
     const charactersTyped = userInput.length;
-    const correctCharacters = currentText.split('').reduce((acc, char, index) => {
-        return acc + (index < charactersTyped && userInput[index] === char ? 1 : 0);
+    // Calculate based on the actual text being typed (from store)
+    const correctCharacters = textToType.split('').reduce((acc, char, index) => {
+         // Avoid calculating if text is just placeholder/error
+         if (isLoadingText || textError || !currentTextItem) return acc;
+         return acc + (index < charactersTyped && userInput[index] === char ? 1 : 0);
     }, 0);
     const incorrectCharacters = charactersTyped - correctCharacters;
 
@@ -141,67 +163,114 @@ const TypingTestPage = () => {
     const accuracy = calculateAccuracy(correctCharacters, charactersTyped);
 
 
+    // --- Function to fetch a random text (Now uses store actions) ---
+    const fetchRandomText = useCallback(async (theme: string = 'informal') => {
+        fetchTextStart(); // Dispatch start action
+
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+        const textsEndpoint = `${backendUrl}/api/texts`;
+
+        try {
+            const response = await axios.get<TypingTextItem[]>(textsEndpoint, {
+                params: { theme: theme, limit: 10 }
+            });
+
+            if (response.data && response.data.length > 0) {
+                const randomIndex = Math.floor(Math.random() * response.data.length);
+                fetchTextSuccess(response.data[randomIndex]); // Dispatch success action
+                console.log("Fetched text:", response.data[randomIndex].TextID);
+            } else {
+                throw new Error(`No texts found for theme: ${theme}`);
+            }
+        } catch (error) {
+            console.error("Failed to fetch typing text:", error);
+            let errorMsg = 'Could not load typing text.';
+             if (axios.isAxiosError(error)) {
+                 errorMsg = error.response?.data?.message || error.message;
+             } else if (error instanceof Error) {
+                 errorMsg = error.message;
+             }
+            fetchTextError(errorMsg); // Dispatch error action
+        }
+    }, [fetchTextStart, fetchTextSuccess, fetchTextError]); // Dependencies are store actions
+
+
+    // --- Event Handlers (Use store actions directly) ---
+    const handleStartGame = () => {
+        // Fetch text first, then the store's startGame action handles countdown logic
+        if ((gameState === 'idle' || gameState === 'finished') && !isLoadingText) {
+            const themes = ['formal', 'informal', 'novel', 'essay', 'scientific', 'technical'];
+            const randomTheme = themes[Math.floor(Math.random() * themes.length)];
+            // Fetch text. The success action in store prepares state for countdown.
+            fetchRandomText(randomTheme).then(() => {
+                 // Now call the store action to start the countdown
+                 // It will internally check if text is ready
+                 startGame();
+            });
+        }
+    };
+
+    const handleRestartGame = () => {
+        // Reset game progress via store action
+        restartGame();
+        // Fetch a new text (which also resets relevant state via fetchTextStart)
+        const themes = ['formal', 'informal', 'novel', 'essay', 'scientific', 'technical'];
+        const randomTheme = themes[Math.floor(Math.random() * themes.length)];
+        fetchRandomText(randomTheme).then(() => {
+            textDisplayRef.current?.focus(); // Focus after fetch attempt
+        });
+        // Reset local display timer
+        setDisplayTime(0);
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+
+
     // --- Effects ---
 
-    // Countdown Timer Logic & Finish Game Logic (with Axios)
+    // Initial text fetch on component mount
     useEffect(() => {
-        // --- Game Finish Logic ---
-        if (gameState === 'finished' && startTime && endTime) {
-            const finalWpm = calculateWpm(correctCharacters, (endTime - startTime) / 1000);
-            setWPM(finalWpm); // Update the store with the final WPM
+        fetchRandomText('informal'); // Fetch an initial text
+        // Cleanup function not strictly needed here unless fetchRandomText returned an abort controller
+    }, [fetchRandomText]); // Run once on mount
 
-            // Prepare stats data
+
+    // Countdown Timer Logic & Finish Game Logic
+    useEffect(() => {
+        // --- Game Finish Logic (Post stats to backend) ---
+        if (gameState === 'finished' && startTime && endTime && currentTextItem) {
+            const finalWpm = calculateWpm(correctCharacters, (endTime - startTime) / 1000);
+            setWPM(finalWpm); // Update store WPM
+
             const statsData = {
                 wpm: finalWpm,
                 dateAchieved: new Date(endTime).toISOString(),
-                textId: "default_text" // Placeholder ID - consider making dynamic
+                textId: currentTextItem.TextID // Use ID from store's currentTextItem
             };
-
-            // Target the backend server URL
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-            const statsEndpoint = `${backendUrl}/api/stats`;
-
-            // Send stats to backend using Axios
-            axios.post(statsEndpoint, statsData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true // Send cookies for authentication
-            })
-            .then(response => {
-                console.log('Stats saved successfully:', response.data?.message);
-                // TODO: Optionally show user feedback about success
-            })
-            .catch(error => {
-                let errorMsg = 'Network error or server unavailable saving stats.';
-                if (error.response) {
-                    // The request was made and the server responded with a status code
-                    // that falls out of the range of 2xx
-                    console.error('Failed to save stats - Server responded:', error.response.status, error.response.data);
-                    errorMsg = error.response.data?.message || `Server error ${error.response.status}`;
-                } else if (error.request) {
-                    // The request was made but no response was received
-                    console.error('Failed to save stats - No response received:', error.request);
-                    errorMsg = 'No response from server while saving stats.';
-                } else {
-                    // Something happened in setting up the request that triggered an Error
-                    console.error('Failed to save stats - Request setup error:', error.message);
-                    errorMsg = `Error saving stats: ${error.message}`;
-                }
-                 // TODO: Optionally show user feedback about the error (using errorMsg)
-            });
+            // ... (Axios POST request to /api/stats remains the same) ...
+             const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+             const statsEndpoint = `${backendUrl}/api/stats`;
+             axios.post(statsEndpoint, statsData, {
+                 headers: { 'Content-Type': 'application/json' },
+                 withCredentials: true
+             }).then(response => {
+                 console.log('Stats saved successfully:', response.data?.message);
+             }).catch(error => {
+                 console.error('Failed to save stats:', error);
+             });
         }
 
         // --- Countdown Logic ---
         if (gameState === 'countdown') {
             countdownIntervalRef.current = setInterval(() => {
+                // Check current value from store before decrementing
                 const currentCountdown = useTypingStore.getState().countdownValue;
                 if (currentCountdown <= 1) {
                     clearInterval(countdownIntervalRef.current!);
-                    startTyping();
-                    textDisplayRef.current?.focus();
+                    startTyping(); // Action to transition to 'running'
+                    textDisplayRef.current?.focus(); // Focus after countdown
                 } else {
-                    decrementCountdown();
+                    decrementCountdown(); // Action to decrement countdown
                 }
             }, 1000);
         } else if (countdownIntervalRef.current) {
@@ -211,14 +280,13 @@ const TypingTestPage = () => {
 
         // Cleanup interval
         return () => {
-            if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
-            }
+            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
         };
-    }, [gameState, startTime, endTime, correctCharacters, setWPM, startTyping, decrementCountdown]); // Added correctCharacters dependency
+        // Dependencies include store state and actions used
+    }, [gameState, startTime, endTime, correctCharacters, currentTextItem, setWPM, startTyping, decrementCountdown]);
 
 
-    // Running Timer Logic
+    // Running Timer Logic (Remains the same, uses startTime from store)
     useEffect(() => {
         if (gameState === 'running' && startTime) {
             timerIntervalRef.current = setInterval(() => {
@@ -232,32 +300,33 @@ const TypingTestPage = () => {
                  setDisplayTime(0);
             }
         }
-        // Cleanup interval
         return () => {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-            }
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
         };
-    }, [gameState, startTime, endTime]); // Added endTime dependency
+    }, [gameState, startTime, endTime]);
 
 
-    // Keyboard Event Listener
+    // Keyboard Event Listener (Uses store actions and state)
     const handleKeyDown = useCallback((event: KeyboardEvent) => {
+        // Check game state from store
         const currentGameState = useTypingStore.getState().gameState;
-        if (currentGameState !== 'running') return;
+        // Also check if text is ready from store state
+        const textReady = !useTypingStore.getState().isLoadingText && !useTypingStore.getState().textError;
+
+        if (currentGameState !== 'running' || !textReady) return;
 
         const { key } = event;
         const currentInputLength = useTypingStore.getState().userInput.length;
-        const textLength = useTypingStore.getState().textToType.length;
+        const textLength = useTypingStore.getState().currentTextItem?.ParagraphText.length ?? 0;
 
         if (key === ' ' || key === 'Backspace' || (key.length === 1 && currentInputLength < textLength)) {
             event.preventDefault();
         }
 
         if (key === 'Backspace') {
-            backspace();
+            backspace(); // Use store action
         } else if (key.length === 1 && currentInputLength < textLength) {
-            typeCharacter(key); // Handles finishing the game internally
+            typeCharacter(key); // Use store action
         }
     }, [backspace, typeCharacter]); // Dependencies are store actions
 
@@ -270,22 +339,6 @@ const TypingTestPage = () => {
     }, [handleKeyDown]);
 
 
-    // --- Event Handlers ---
-    const handleStart = () => {
-        const currentGameState = useTypingStore.getState().gameState;
-        if (currentGameState === 'idle' || currentGameState === 'finished') {
-            startGame();
-        }
-    };
-
-    const handleRestart = () => {
-        restartGame();
-        setDisplayTime(0);
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-        textDisplayRef.current?.focus();
-    };
-
     // --- Render ---
     return (
         <div className="min-h-screen bg-gray-900 text-gray-300 flex flex-col items-center justify-center p-4 font-sans"
@@ -295,11 +348,19 @@ const TypingTestPage = () => {
             <h1 className="text-4xl font-bold text-yellow-400 mb-8">Typing Test</h1>
 
             <div className="w-full max-w-4xl relative">
+                 {/* Display loading/error state using store variables */}
+                {isLoadingText && <div className="text-center text-yellow-400 my-4 animate-pulse">Loading new text...</div>}
+                {textError && <div className="text-center text-red-500 my-4 bg-red-900 bg-opacity-30 p-2 rounded">{textError}</div>}
+
                 {/* Countdown Overlay */}
                 {gameState === 'countdown' && <Countdown count={countdownValue} />}
 
-                {/* Typing Area */}
-                <TypingTextDisplay text={currentText} userInput={userInput} />
+                {/* Typing Area - Use textToType from store */}
+                {/* Conditionally render based on loading/error state */}
+                {(!isLoadingText || gameState === 'countdown') && ( // Show text area even if loading during countdown
+                     <TypingTextDisplay text={textToType} userInput={userInput} />
+                )}
+
 
                 {/* Timer Display */}
                 {(gameState === 'running' || gameState === 'finished') && (
@@ -313,29 +374,32 @@ const TypingTestPage = () => {
                     <ResultsDisplay wpm={wpm} accuracy={accuracy} incorrectChars={incorrectCharacters} />
                 )}
 
-                {/* Controls */}
+                {/* Controls - Use updated handlers */}
                 <div className="mt-8 text-center space-x-4">
                     {(gameState === 'idle' || gameState === 'finished') && (
                         <button
-                            onClick={handleStart}
-                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+                            onClick={handleStartGame}
+                            disabled={isLoadingText || !!textError} // Disable if loading or error
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Start
+                             {/* Change text based on state */}
+                             {gameState === 'finished' ? 'Start New Game' : (isLoadingText ? 'Loading...' : 'Start')}
                         </button>
                     )}
                     {(gameState === 'running' || gameState === 'countdown' || gameState === 'finished') && (
                         <button
-                            onClick={handleRestart}
-                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                            onClick={handleRestartGame}
+                            disabled={isLoadingText} // Disable while loading new text on restart
+                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-md transition duration-150 ease-in-out shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Restart
+                            {isLoadingText ? 'Loading...' : 'Restart'}
                         </button>
                     )}
                 </div>
             </div>
 
             <footer className="mt-12 text-center text-gray-500 text-sm">
-                Press Start to begin.
+                Current state: {gameState}
             </footer>
         </div>
     );

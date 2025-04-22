@@ -1,6 +1,5 @@
-import React from 'react'; // Import React if not already done implicitly
 import TypingTestPage from './pages/TypingTestPage';
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom"; // Import Link
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from './pages/LandingPage';
 import Navbar from './components/Navbar'; // Assuming Navbar handles its own links, or adjust below
 import LeaderboardPage from './pages/LeaderboardPage';

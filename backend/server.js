@@ -274,6 +274,50 @@ app.get('/api/leaderboard', async (req, res) => {
 
 
 
+// --- Route to get stats for the currently logged-in user ---
+app.get('/api/user/stats', ensureAuthenticated, async (req, res) => {
+    const userId = req.user?.id; // Get UserID from the authenticated session
+
+    if (!userId) {
+        // This shouldn't happen if ensureAuthenticated works, but good practice
+        return res.status(401).json({ message: 'User not found in session' });
+    }
+
+    const params = {
+        TableName: tableName,
+        // Query the main table using the UserID (Partition Key)
+        KeyConditionExpression: "#uid = :user_id AND begins_with(#dtype, :stat_prefix)",
+        ExpressionAttributeNames: {
+            "#uid": "UserID",
+            "#dtype": "DataType" // Alias for the sort key
+        },
+        ExpressionAttributeValues: {
+            ":user_id": userId,
+            ":stat_prefix": "STAT#" // Filter for items where DataType starts with "STAT#"
+        },
+        // Return newest stats first based on the DataType (STAT#<ISO_DATE>)
+        ScanIndexForward: false // Sort by Sort Key (DataType) descending
+    };
+
+    try {
+        console.log(`Querying stats for UserID: ${userId}`);
+        const command = new QueryCommand(params);
+        const data = await docClient.send(command);
+        console.log(`Found ${data.Items?.length || 0} stat items for UserID: ${userId}`);
+
+        // The items are already sorted by date descending due to ScanIndexForward: false
+        // If you wanted to sort by WPM here, you would do it after fetching:
+        // const sortedByWpm = data.Items?.sort((a, b) => (b.WPM || 0) - (a.WPM || 0));
+        // res.status(200).json(sortedByWpm || []);
+
+        res.status(200).json(data.Items || []); // Return items sorted by date
+
+    } catch (dbError) {
+        console.error(`Error querying stats for UserID ${userId}:`, dbError);
+        res.status(500).json({ message: 'Failed to fetch user stats' });
+    }
+});
+
 
 
 

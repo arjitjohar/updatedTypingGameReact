@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +17,10 @@ const Navbar = () => {
           </Link>
           <Link to="/leaderboard" className="text-xl font-bold hover:text-gray-50">
             Leaderboards
+          </Link>
+
+          <Link to="/my-stats" className="text-xl font-bold hover:text-gray-50">
+            stats
           </Link>
         </div>
 
